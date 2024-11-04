@@ -1,0 +1,358 @@
+Paragraph:
+
+My Arduino Project consists of a single memory game with external features.	My inputs are my buttons,	and my ultrasonic sensor.	My outputs consist of LED’s,	a Piezo buzzer,	and my motion feature consists of a Servo Motor.	The game begins as soon as the board comes online.	A random LED is lit up through a random() function,	and is accompanied by the sound of it’s corresponding note.		To signal the beginning of play my servo motor will turn a certain way for the first 2 moves of the game.
+After the game ends (ie. the wrong light is lit up), my servo motor move back to it’s original position. (At the time of the in-person presentation I believe this feature worked as intended).	After a wrong move the function will exit and the game will go silent.	After each correct move a sort of level-up sound will be played and the game will continue as intended as long as the player chooses the correct sequence to light up.
+After the game ends the player is able to put his hand in front of the ultrasonic sensor and a special note will play.	(This did not work as intended during the presentation,	but the note was played meaning it was taking in some sort of input from somewhere).	The arduino itself was simple enough,	but the code proved to be the hardest part of the project and serves as a reminder that just because something sounds easy in your head does not mean it actually is! :)
+
+
+
+
+
+
+
+
+#define NOTE_B0 31
+#define NOTE_C1 33
+#define NOTE_CS1 35
+#define NOTE_D1 37
+#define NOTE_DS1 39
+#define NOTE_E1 41
+#define NOTE_F1 44
+#define NOTE_FS1 46
+#define NOTE_G1 4
+#define NOTE_GS1 52
+#define NOTE_A1 55
+#define NOTE_AS1 58
+#define NOTE_B1 62
+#define NOTE_C2 65
+#define NOTE_FS2 93
+#define NOTE_G2 98
+#define NOTE_GS2 104
+#define NOTE_A2 110
+#define NOTE_AS2 117
+#define NOTE_B2 123
+#define NOTE_C3 131
+#define NOTE_CS3 139
+#define NOTE_D3 147
+#define NOTE_DS3 156
+#define NOTE_E3 165
+#define NOTE_F3 175
+#define NOTE_FS3 185
+#define NOTE_G3 196
+#define NOTE_GS3 208
+#define NOTE_A3 222
+#define NOTE_AS3 233
+#define NOTE_B3 247
+#define NOTE_C4 262
+#define NOTE_CS4 277
+#define NOTE_D4 294
+
+
+
+#include <Servo.h> //this is to intiialize my servo motor
+
+
+
+Servo Servo1; //for my servo
+
+
+
+// Constants that will define LEDS,	buttons,	and game notes/tones const int ledPins[] = {7, 8, 12, 13};
+const int buttonPins[] = {11, 10, 5, 3};
+
+#define SPEAKER_PIN 2 //speaker / piezo button
+
+
+
+#define TRIG_PIN 9 //for my sensor
+
+
+
+#define ECHO_PIN 4 //sensor
+
+
+
+
+
+
+
+
+long duration;	// for sensor
+
+
+
+
+
+long distance;	//for sensor
+
+
+
+
+//this will decide the length of the game,	essentially each time a random LED is chosen this array will get filled with either a 0, 1, 2 or 3.
+
+int randomLed[50] = {0};
+
+//the sounds I wil be using for my LED light up functions
+
+const int buttonSounds[] = {NOTE_G3, NOTE_C4, NOTE_E4, NOTE_G5};
+
+
+
+
+//the current sequence will begin at 0 and be added onto each iteration of the loop
+int currentSequence = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+/*one way I found that you can actually set your LED and button pins Courtesy of:
+https://roboticsbackend.com/arduino-turn-led-on-and-off-with-button/ */
+
+void setup()
+{
+
+for (int i = 0; i < 4; i++)
+{
+pinMode(ledPins[i], OUTPUT); pinMode(buttonPins[i], INPUT);
+}
+
+// only have one speaker pin so this gets run at the end of the loop pinMode(SPEAKER_PIN, OUTPUT);
+
+
+pinMode(TRIG_PIN, OUTPUT); //setting my sensor up
+
+
+
+pinMode(ECHO_PIN, INPUT);	//setting my sensor up
+
+
+
+Servo1.attach(6); // servoPin;
+
+//apparently I needed this all along,	pretty much just a set up for my random fucntion
+randomSeed(analogRead(0));
+}
+
+
+
+
+
+
+
+
+
+
+
+//2 = speaker button
+//when this function is called from playSequence it just lights up the given LED,	this will also be played when the player inputs a button press void lightLedAndPlayTone(int ledIndex)
+{
+digitalWrite(ledPins[ledIndex], HIGH);
+tone(2, buttonSounds[ledIndex]); //plays a tone after the led is pressed 
+delay(300);
+digitalWrite(ledPins[ledIndex], LOW); noTone(2);
+}
+
+
+
+
+
+
+
+
+
+//the beginning sequence,	plays as many times as currentSequence has been added to (hence the ++,	ironically I think this is part of why my game never has an endpoint even if they reach the 50th sequence in the original array)
+
+void playSequence()
+{
+for (int i = 0; i < currentSequence; i++)
+{
+
+int currentLed = randomLed[i];	// will run through each prior element in the array (ie. 0, 2, 1, 3)
+lightLedAndPlayTone(currentLed); delay(50);
+}
+}
+
+
+
+
+
+
+
+
+//this reads the player input int playerInput()
+{
+int j = 0; int k = 1;
+while (j < k) // just wanted a way for this to always run
+{
+for (int i = 0; i < 4; i++) //runs through each buttonPin to find out which one was pressed,	something about my circuit was switched so instead of searching for which one is high it searches for which one is low
+{
+int buttonPin = buttonPins[i];
+if (digitalRead(buttonPin) == LOW)
+{
+return i; //returns the low one
+}
+}
+delay(50);
+}
+}
+
+//plays a losing sound whenever an incorrect input is chosen void gameOver()
+{
+
+tone(SPEAKER_PIN, NOTE_G4);
+delay(300); tone(SPEAKER_PIN, NOTE_C4);
+delay(300); noTone(SPEAKER_PIN); delay(500);
+}
+
+
+
+
+
+
+
+
+
+
+
+//this checks if the playerInput was correct,	it’s called by the playerInput function and runs using currentSequence similarity to the playerSequence function.	If the player input matches the random number function in that certain spot of the array,	ie. his 3rd button press was on button 2 (1 in the array of buttons),	and the 3rd spot in the game array was 1 ie. could be (0, 2, 1),	this would return true if currentSequence was 3.	If it any point the player was wrong along the way,	this would return false.
+bool checkUserSequence()
+{
+for (int i = 0; i < currentSequence; i++)
+{
+int correctButton = randomLed[i]; int enteredButton = playerInput(); lightLedAndPlayTone(enteredButton); if (correctButton != enteredButton)
+{
+return false; //as long as this is false the player will
+}
+}
+return true;
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//plays the level up sound void playLevelUpSound()
+{
+tone(SPEAKER_PIN, NOTE_A5);
+delay(150); tone(SPEAKER_PIN, NOTE_B5);
+delay(150); tone(SPEAKER_PIN, NOTE_C5);
+delay(150); tone(SPEAKER_PIN, NOTE_B5);
+delay(150); tone(SPEAKER_PIN, NOTE_C5);
+delay(150); tone(SPEAKER_PIN, NOTE_D5);
+delay(150); tone(SPEAKER_PIN, NOTE_C5);
+delay(150); tone(SPEAKER_PIN, NOTE_D5);
+delay(150); tone(SPEAKER_PIN, NOTE_E5);
+delay(150); tone(SPEAKER_PIN, NOTE_D5);
+delay(150); tone(SPEAKER_PIN, NOTE_E5);
+
+delay(150); tone(SPEAKER_PIN, NOTE_E5);
+delay(150); noTone(SPEAKER_PIN);
+}
+
+//plays my servo void playServo1()
+{
+
+
+
+Servo1.write(45); Servo1.write(90); Servo1.write(135); Servo1.write(180);
+
+
+}
+
+//is called when the player loses and returns my servo to where it was before
+void playServo2()
+{
+
+
+
+Servo1.write(180); Servo1.write(135); Servo1.write(90); Servo1.write(45);
+
+
+}
+//this is my function for my sensor that detects motion,	apparently theres a specific way it can detect inches credit to:  https://techexplorations.com/guides/arduino/sensors/ultrasonic/#:~:text=Th rough%20pin%2013%2C%20the%20Arduino,up%20by%20the%20sensor's%20receiver. int detectMotion()
+{
+long duration, distance; digitalWrite(TRIG_PIN, LOW);
+
+delayMicroseconds(2); digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10); digitalWrite(TRIG_PIN, LOW); duration = pulseIn(ECHO_PIN, HIGH); distance = (duration/2) / 29.1; return distance;
+}
+
+//plays the sound from the ultrasonic sensor if someone is within 3 inches at the end of the game
+void playSound()
+{
+tone(SPEAKER_PIN, NOTE_F2);
+delay(150); tone(SPEAKER_PIN, NOTE_A5);
+delay(150); tone(SPEAKER_PIN, NOTE_B3);
+delay(150); tone(SPEAKER_PIN, NOTE_A3);
+delay(150); noTone(SPEAKER_PIN);
+}
+
+//just my loop function,	currentSequence is added onto by 1 each time my random function is called,	that adds 1 spot the array randomLED,	then playSequence is ran
+void loop()
+{
+
+
+
+
+
+randomLed[currentSequence] = random(0, 4); currentSequence++;
+
+
+
+
+
+playSequence();
+
+
+if (checkUserSequence()==false) //runs through the function to see if everything is good
+{
+gameOver(); // if not good,	then all this stuff plays playServo2();
+detectMotion(); if(detectMotion > 3)
+{
+playSound();
+}
+exit(-1); //exits if the player inputs something wrong
+}
+
+
+
+
+
+
+
+
+delay(300);
+
+
+
+
+
+if (currentSequence > 0) //moves my servo,	plays the level up sound
+{
+playLevelUpSound(); playServo1(); delay(300);
+}
+
+
+
+}
+
